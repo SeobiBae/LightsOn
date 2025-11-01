@@ -205,7 +205,7 @@
 		</div>
 	</aside>
 	<footer>
-		<input type="button" id="shuffleButton" onclick="shuffleMe(), checkVictory()" value="Shuffle">
+		<input type="button" id="shuffleButton" onclick="shuffleMainGrid(), checkVictory()" value="Shuffle">
 		<input type="button" id="solutionButton" onclick="solveIt()" value="Solve it for me!">
 	</footer>
 
@@ -217,16 +217,59 @@
 		const solutionLabel = document.getElementById("solutionLabel");
 		const shuffleButton = document.getElementById('shuffleButton');
 		const difficultyList = document.getElementById("difficulty-list");
-		let transitionMatrix = [];
-		const mainGridCellList = [];
-		const solutionGridCellList = [];
-		const readMe=new SpeechSynthesisUtterance();
+		
+		const mainGridCellButtonList = [];
+		const solutionGridCellButtonList = [];
 
-		function shuffleMe() {
+		function checkVictory() {
+			let hasWon = true;
+
+			if(Solution.selected==null) return;
+
+			for (let cell of mainGridCellButtonList) {
+				if (cell.status != Solution.selected.mat.value[cell.i][cell.j]) { hasWon = false; break; }
+			}
+			victoryLabel.dataset.status = (hasWon ? "won" : "none");
+			
+			if(hasWon && !window.speechSynthesis.speaking){
+				const utterA = new SpeechSynthesisUtterance("ブラヴォ。メセドラシヤス！");
+				utterA.lang="ja-JP";
+				utterA.pitch=.5;
+
+				const utterB = new SpeechSynthesisUtterance("ウィ、サプ。サプヴレマン僕。メセボン！");
+				utterB.lang="ja-JP";
+				utterB.pitch=1.9;
+				
+				utterB.addEventListener("end",()=>{victoryLabel.dataset.status = "none";});
+
+				window.speechSynthesis.speak(utterA);
+				window.speechSynthesis.speak(utterB);
+			}
+		}
+
+		function solveIt() {
+			/* 	the idea is : finalState = initialState + transitionMatrix∙pushedCells
+				(notation change)	   f = i + A∙X
+							   A⁻¹·(f-i) = A⁻¹·A·X
+									   X = inv(A)·(f-i)
+			*/
+
+			if(Solution.selected==null) return;
+
+			let inputMatrix = new Matrix(Array.from({length:mainGridCellButtonList.length},(_,i)=>[mainGridCellButtonList[i].status?1:0]));
+			let finalMatrix = Solution.selected.mat;
+			// on F2 : a-b = a+b
+			let gridSize = finalMatrix.rows() ; // get size from where ? maingrid, solutiongrid, sqrt(maingridcelllist.length) ?
+			let sol = Matrix.getTransitionMatrixFor(gridSize,gridSize).getInverseMatrix().multiplyMatrix(inputMatrix.addMatrix(finalMatrix.getColonized()));
+			// no need to resquare sol
+			solutionLabel.innerHTML = sol.value.map((v, i) => (v[0] == 1 ? mainGridCellButtonList[i].letter : '')).filter((c) => c != '').join(' ');
+			solutionLabel.style.visibility = 'visible';
+		}
+
+		function shuffleMainGrid() {
 			solutionLabel.style.visibility = 'hidden';
 			victoryLabel.dataset.status = "shuffling";
-
-			mainGridCellList.forEach((cell) => {
+			mainGridCellButtonList.forEach((cell) => {
 				if (Math.random() > 0.5) cell.changeCellStatus();
 			});
 		}
@@ -234,11 +277,11 @@
 		function toggleDropdownList() { difficultyList.classList.toggle("shown"); }
 
 		function onClickMainGridButton(button) {
-			if (button == null || !(button instanceof ButtonCell)) return;
+			if (button == null || !(button instanceof CellButton)) return;
 			let editMode = editModeCheckbox.checked;
 			if (editMode) { button.changeCellStatus(); }
 			else
-				mainGridCellList.forEach((cell, index) => {
+				mainGridCellButtonList.forEach((cell, index) => {
 					let dx = Math.abs(cell.i - button.i);
 					let dy = Math.abs(cell.j - button.j);
 					if (dx + dy < 2 && !editMode) { cell.changeCellStatus(); }
@@ -247,17 +290,18 @@
 		}
 
 		function onClickSolutionGridButton(button) {
-			if(button==null || !(button instanceof ButtonCell)) return;
+			if(button==null || !(button instanceof CellButton)) return;
 
 			if(editModeCheckbox.checked){
-				solutions[selectedSolution][1].value[button.i][button.j]=(solutions[selectedSolution][1].value[button.i][button.j]+1)%2;
+
+				Solution.selected.mat.value[button.i][button.j]=(Solution.selected.mat.value[button.i][button.j]+1)%2;
 				button.changeCellStatus();
 			}
 
 			checkVictory();// in cas we won by editing the solution
 		}
 
-		class ButtonCell {
+		class CellButton {
 			status = false;
 			// unsafe to keep them public and modifiable but osef
 			button = null;
@@ -297,13 +341,9 @@
 			}
 		}
 
-		//	=========================================
-		//					maths
-		//	=========================================
-
 		class Matrix {
 			value = [];
-			constructor(value) { this.value = value; }
+			constructor(value) { this.value = value; } // you let value unverified ? REALLY ?
 			static zeros(rows, cols = rows) { return new Matrix(Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0))); }
 			static ones(rows, cols = rows) { return new Matrix(Array.from({ length: rows }, () => Array.from({ length: cols }, () => 1))); }
 			rows() { return this.value.length; }
@@ -323,8 +363,8 @@
 				//Array.from({length:9},(val,index)=>{}) // {length:9} is an object with only one attribute : length=9
 				//Array.from(objet_iterable,(_,index)=>{})
 				//Array.from("ABSDCEF",(_,index)=>0) // array of seven 0 
-				// ATTENTION ()=>{} needs a return : Array.from({length:3},(_,i)=>{return i*i})
-				// while ()=>5 doesnt
+				// ()=>{} needs a return : Array.from({length:3},(_,i)=>{return i*i})
+				// 		while ()=>5 doesnt
 
 				// ...value is a spread operator : decompose in its elements
 				// map creates a new array by applying a function to all its elements
@@ -393,130 +433,69 @@
 				}
 				return result;
 			}
-		}
 
-		/*
-const configs={
-	name:"bob",
-	age:44,
-	weight:120
-};*/
-
-
-		function checkVictory() {
-			let hasWon = true;
-			//let victoryCounter=0;
-			//cellList.forEach((cell,index)=>{victoryCounter+=cell.status?1:0;}
-			//victoryLabel.dataset.status=(victoryCounter==cellList.length?"won":"none");
-
-			// solution could be an array -> pattern
-			let solution = solutions[selectedSolution][1];
-			for (let cell of mainGridCellList) {
-				//if(cell.status!=solution){hasWon=false;break;}
-				if (cell.status != solution.value[cell.i][cell.j]) { hasWon = false; break; }
-
-			}
-			victoryLabel.dataset.status = (hasWon ? "won" : "none");
-			if(hasWon && !window.speechSynthesis.speaking){
-
-				const utterA = new SpeechSynthesisUtterance("ああ、メセドラシヤス！");
-				utterA.lang="ja-JP";
-				utterA.pitch=.5;
-
-				const utterB = new SpeechSynthesisUtterance("ううい、サプ。サプヴレマン僕。メセボン！");
-				utterB.lang="ja-JP";
-				utterB.pitch=1.9;
-
-				window.speechSynthesis.speak(utterA);
-				window.speechSynthesis.speak(utterB);
+			static getTransitionMatrixFor(gridSizeX, gridSizeY = gridSizeX) {
+				if (gridSizeX != gridSizeY) throw new Error("cant init non squarre trans mat");
+				//transitionMatrix = new Matrix(Array.from({ length: gridSizeX * gridSizeY }, () => Array.from({ length: gridSizeX * gridSizeY }, () => 0)));
+				
+				let m=Matrix.zeros(gridSizeX*gridSizeY,gridSizeX*gridSizeY);
+				
+				for (let x = 0; x < gridSizeX; x++)
+					for (let y = 0; y < gridSizeY; y++)
+						for (let i = 0; i < gridSizeX; i++)
+							for (let j = 0; j < gridSizeY; j++) {
+								let Dx=Math.abs(x-i);
+								let Dy=Math.abs(y-j);
+								if (Dx + Dy < 2) m.value[x + gridSizeY * (y)][i + gridSizeX * (j)] += 1;
+							}
+				return m;
 			}
 		}
-
-		function solveIt() {
-			/* 	the idea is : finalState = initialState + transitionMatrix∙pushedCells
-				(notation change)	   f = i + A∙X
-							   A⁻¹·(f-i) = A⁻¹·A·X
-									   X = inv(A)·(f-i)
-			*/
-			let inputMatrix = new Matrix(Array.from({ length: mainGridCellList.length }, (_, i) => [mainGridCellList[i].status ? 1 : 0]));
-			let finalMatrix = (solutions[selectedSolution][1]).getColonized();//.ones(cellList.length,1);
-			// X = final-input
-			//inputMatrix.value.forEach( (v,i,array) => array[i][0]=(v[0]+finalMatrix.value[i][0])%2 );
-			let X = inputMatrix.addMatrix(finalMatrix);
-			let sol = transitionMatrix.getInverseMatrix().multiplyMatrix(X);
-			// no need to resquare it
-			solutionLabel.innerHTML = sol.value.map((v, i) => (v[0] == 1 ? mainGridCellList[i].letter : '')).filter((c) => c != '').join(' ');
-			solutionLabel.style.visibility = 'visible';
-		}
-
-		function initializeTransitionMatrixFor(gridSizeX, gridSizeY = gridSizeX) {
-			if (gridSizeX != gridSizeY) throw new Error("cant init non squarre trans mat");
-			//transitionMatrix = new Matrix(Array.from({ length: gridSizeX * gridSizeY }, () => Array.from({ length: gridSizeX * gridSizeY }, () => 0)));
-			transitionMatrix=Matrix.zeros(gridSizeX*gridSizeY,gridSizeX*gridSizeY);
-			for (let x = 0; x < gridSizeY; x++)
-				for (let y = 0; y < gridSizeX; y++)
-					for (let i = 0; i < gridSizeY; i++)
-						for (let j = 0; j < gridSizeX; j++) {
-							let Dx=Math.abs(x-i);
-							let Dy=Math.abs(y-j);
-							if (Dx + Dy < 2) transitionMatrix.value[x + gridSizeX * (y)][i + gridSizeY * (j)] += 1;
-						}
-		}
-		// ==========================================
 
 		function buildMainGrid(gridRows,gridCols=gridRows) {
-			gridRows= gridRows ?? solutions[selectedSolution][1].rows();
-			gridCols= gridCols ?? solutions[selectedSolution][1].cols();
-			initializeTransitionMatrixFor(gridRows,gridCols); // pertinent here in buildGrid ?
+			gridRows= gridRows ?? Solution.selected.mat.rows();
+			gridCols= gridCols ?? Solution.selected.mat.cols();
+			//initializeTransitionMatrixFor(gridRows,gridCols); // pertinent here in buildGrid ?
 
 			// first remove the buttons then clean the array
-			mainGridCellList.forEach((c) => { c.button.remove() });
-			mainGridCellList.length = 0;
+			mainGridCellButtonList.forEach((c) => { c.button.remove() });
+			mainGridCellButtonList.length = 0;
 			mainGridContainer.style.setProperty('--cols', gridRows);
 			// if width .... setProperty() ?
 
 			for (let j = 0; j < gridCols; j++) {
 				for (let i = 0; i < gridRows; i++) {
 					let letter = i + j * gridRows + 1;
-					let cell = new ButtonCell(letter, j, i, onClickMainGridButton);//reversed to be consistent with matrix indexing
+					let cell = new CellButton(letter, j, i, onClickMainGridButton);//reversed to be consistent with matrix indexing
 					
 					if (Math.random() > 0.5) cell.changeCellStatus();
-					mainGridCellList.push(cell);
+					mainGridCellButtonList.push(cell);
 					mainGridContainer.appendChild(cell.button);
 				}
 			}
 		}
 
-		// rethink the indexing of buttons
-
 		function buildSolutionGrid(gridRows,gridCols=gridRows) {
-			gridRows= gridRows ?? solutions[selectedSolution][1].rows();
-			gridCols= gridCols ?? solutions[selectedSolution][1].cols();
-			solutionGridCellList.forEach((c) => { c.button.remove() });
-			solutionGridCellList.length = 0;
+			gridRows= gridRows ?? Solution.selected.mat.rows();
+			gridCols= gridCols ?? Solution.selected.mat.cols();
+			solutionGridCellButtonList.forEach((c) => { c.button.remove() });
+			solutionGridCellButtonList.length = 0;
 			solutionGridContainer.style.setProperty('--cols', gridRows);
 			// if width .... setProperty() ?
 
 			for (let j = 0; j < gridCols; j++) {
 				for (let i = 0; i < gridRows; i++) {
 					let letter = i + j * gridRows + 1;
-					let cell = new ButtonCell(letter, j, i, onClickSolutionGridButton);//reversed to be consistent with matrix indexing
+					let cell = new CellButton(letter, j, i, onClickSolutionGridButton);//reversed to be consistent with matrix indexing
 					
-					//if (Math.random() > 0.5) 
-
-					let y =(solutions[selectedSolution][1]).value[j][i];
+					let y =Solution.selected.mat.value[j][i];
 					cell.changeCellStatus((y==1));
 					
-					
-					solutionGridCellList.push(cell);
+					solutionGridCellButtonList.push(cell);
 					solutionGridContainer.appendChild(cell.button);
 				}
 			}
-
-
 		}
-
-
 
 		const sol_3x3_corners = new Matrix(
 			[
@@ -525,53 +504,57 @@ const configs={
 				[1, 0, 1],
 			]);
 
-		/*
-		class Solution{
-			label
-			matrix
-			button ?
-		}
-		*/
-		// not statisfactory, messy
-		const solutions = [
-			["1×1", Matrix.ones(1)],
-			["3×3", Matrix.ones(3)],
-			["3×3 corners", sol_3x3_corners],
-			["6×6", Matrix.ones(6)],
-			["10×10", Matrix.ones(10)],
-			//["15×15", Matrix.ones(15)] too big
-		];
-		let selectedSolution = 1;
+/*
+rethink the indexing of buttons
+RENAME SOLUTION IN DIFFICULTY ?
+rename difficulty button text in "grid size" ?
+*/
 
-		// build solutions
-		for (let i = 0; i < solutions.length; i++) {
-			let element = document.createElement('button');
-			element.classList.add('difficulty-list-button');
-			element.textContent = solutions[i][0];
-			element.addEventListener('click', () => {
+		class Solution{
+			mat=null;
+			button=null;
+			static selected=null;
+
+			constructor(txt,mat){
+				this.mat=mat;
+				let element = document.createElement('button');
+				element.classList.add('difficulty-list-button');
+				element.textContent = txt;
+				element.addEventListener('click', ()=>this.onClick() );
+				difficultyList.appendChild(element);
+			};
+
+			onClick(){
 				solutionLabel.style.visibility = 'hidden';
 				victoryLabel.dataset.status = "shuffling";
 				toggleDropdownList();
-				selectedSolution = i;
+				Solution.selected = this;
 				buildMainGrid();
 				buildSolutionGrid();
 				checkVictory(); // in case the new game is won at the beginning
-			});
-			difficultyList.appendChild(element);
-		};
+			}
+
+		}
+
+		const solutions=[
+			new Solution("1×1", Matrix.ones(1)),
+			new Solution("3×3", Matrix.ones(3)),
+			new Solution("3×3 corners", sol_3x3_corners),
+			new Solution("6×6", Matrix.ones(6)),
+			new Solution("10×10", Matrix.ones(10)),
+			//["15×15", Matrix.ones(15)] too big
+		];
+
+		Solution.selected=solutions[1];
 
 		/*document.addEventListener('click',()=>{
 			difficultyList.classList.remove("shown");
 		});*/
 
-
 		// may just do as a click on a difficultyListButton ? solutions..
+		//solutions[2][1].button.clik ?
 		buildMainGrid();
 		buildSolutionGrid();
-
-		let solutionViewer = document.getElementById("solutionViewer");
-
-
 	</script>
 </body>
 
