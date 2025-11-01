@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1.0">
+	<title>Lights On</title>
+	<style>
+		body {
+			background-color: rgb(8,8,8);
+			margin: 0;
+			padding:0;
+			/*height: 100vh;*/
+			display:block;
+		}
+		main{
+			width:100%;
+			height:600px;
+			display:flex;
+			justify-content: center;
+			gap:10px;
+			margin-top: 40px;
+			margin-bottom: 40px;
+			margin-right: 200px;
+
+		}
+		header{
+			display: flex;
+			justify-content: space-between;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width:100%;
+			height: 40px;
+			/*padding: 0 0;*/
+		}
+		footer{
+			display:flex;
+			width: 100%;
+			height: 40px;
+			position: fixed;
+			bottom: 0;
+			background-color: lightyellow;
+			justify-content: space-around;
+		}
+		.cellContainer {
+			display: grid;
+			grid-template-columns: repeat(var(--cols), 1fr);
+			align-items: center;
+			justify-items: center;
+			justify-content: center;
+			/*
+			height: auto;
+			max-width: 1000px;
+			/*max-height: 800px;
+			/*
+			max-width: cacl(50.5fr - 100px);
+			
+			/*min-height: 400px;
+			max-height: 50vh;
+			*/
+			gap: 0px;
+			/*font-size: 30px;*/
+			aspect-ratio: 1/1;
+			/*width: 600px;/* calc(100vw-200px);*/
+			border-color:black;
+			border-width: 4px;
+			border-style:outset;
+		}
+		.cell {
+			width: 100%;
+			min-width: 10px;
+			font-size: 14px;
+			color: black;
+			justify-content: center;
+			align-items: center;
+			cursor: pointer;
+			aspect-ratio: 1/1;
+			/*display: flex;*/
+			border-width: 3px;
+			border-color: black;
+		}
+
+		#victoryLabel {
+			font-size: 100px;
+			background-color: orange;
+			position: fixed;
+			top: 50px;
+			left: 0;
+			width: 100%;
+			text-align: center;
+			justify-content: center;
+			z-index: 1;
+			display: none;
+		}
+
+		#victoryLabel[data-status="won"] {
+			display: flex;
+		}
+
+		aside {
+			width: 200px;
+			position: fixed;
+			top: 40px;
+			right: 0px;
+			bottom: 40px;
+		}
+		#solutionContainer {
+			width: 100%;
+			height: 100%;
+			display: flex;
+		}
+
+		.editModeContainer {
+			display: flex;
+			align-items: center;
+			justify-content: end;
+			font-size: 24px;
+			color: yellowgreen;
+			font-family: sans-serif;
+		}
+		#editModeCheckbox {
+			width: 20px;
+			height: 20px;
+		}
+		#shuffleButton {
+			width: 100%;
+			height: 100%;
+			font-size: 30px;
+			background-color: darkgrey;
+		}
+
+		#solutionButton {
+			width: 200px;
+			/*height: 40px;*/
+			font-size: 25px;
+			color: red;
+			background-color: black;
+			border-color: orange;
+
+		}
+
+		#solutionLabel {
+			visibility: hidden;
+			font-size: 25px;
+			font-family: sans-serif;
+			color: rgb(255, 0, 0);
+			align-content: center;
+			text-align: center;
+			height: 100%;
+			width:100%;
+		}
+
+		.difficulty-dropdown {display: inline-block;}
+
+		.difficulty-button {
+			color: black;
+			width: 200px;
+			height: 100%;
+			font-size: 25px;
+			background-color: darkgrey;
+		}
+
+		.difficulty-list {
+			display: none;
+			position: absolute;
+			width: 200px;
+			z-index: 100;
+		}
+
+		.difficulty-list-button {
+			display: block;
+			width: 100%;
+			background-color: rgb(255, 251, 251);
+			color: black;
+			text-decoration: none;
+			font-size: 16px;
+		}
+
+		.shown {display: block;}
+
+		.difficulty-list-button:hover {background-color: grey;	}
+
+	</style>
+</head>
+
+<body>
+	<header>
+		<div class="difficulty-dropdown">
+			<button class="difficulty-button" onclick="toggleDropdownList()">Difficulty ▼</button>
+			<div class="difficulty-list" id="difficulty-list"></div>
+		</div>
+		<label class="editModeContainer">
+				<div>Edit mode</div>
+				<input type="checkbox" id="editModeCheckbox">
+		</label>
+	</header>		
+	<main >
+		<div class="cellContainer" id="cellContainer"></div>
+		<div class="cellContainer" id="solutionViewer"></div>
+	</main>
+	<div id="victoryLabel"> CONGRATULATIONS!</div>
+	<aside>
+		<div id="solutionContainer">
+			<div id="solutionLabel"></div>
+		</div>
+	</aside>
+	<footer>
+		<input type="button" id="shuffleButton" onclick="shuffleMe(), checkVictory()" value="Shuffle">
+		<input type="button" id="solutionButton" onclick="solveIt()" value="Solve it for me!">
+	</footer>
+
+	<script>
+		const mainGridContainer = document.getElementById('cellContainer');
+		const solutionGridContainer = document.getElementById('solutionViewer');
+		const victoryLabel = document.getElementById('victoryLabel');
+		const editModeCheckbox = document.getElementById('editModeCheckbox');
+		const solutionLabel = document.getElementById("solutionLabel");
+		const shuffleButton = document.getElementById('shuffleButton');
+		const difficultyList = document.getElementById("difficulty-list");
+		let transitionMatrix = [];
+		const mainGridCellList = [];
+		const solutionGridCellList = [];
+		const readMe=new SpeechSynthesisUtterance();
+
+		function shuffleMe() {
+			solutionLabel.style.visibility = 'hidden';
+			victoryLabel.dataset.status = "shuffling";
+
+			mainGridCellList.forEach((cell) => {
+				if (Math.random() > 0.5) cell.changeCellStatus();
+			});
+		}
+
+		function toggleDropdownList() { difficultyList.classList.toggle("shown"); }
+
+		function onClickMainGridButton(button) {
+			if (button == null || !(button instanceof ButtonCell)) return;
+			let editMode = editModeCheckbox.checked;
+			if (editMode) { button.changeCellStatus(); }
+			else
+				mainGridCellList.forEach((cell, index) => {
+					let dx = Math.abs(cell.i - button.i);
+					let dy = Math.abs(cell.j - button.j);
+					if (dx + dy < 2 && !editMode) { cell.changeCellStatus(); }
+				});
+			checkVictory();
+		}
+
+		function onClickSolutionGridButton(button) {
+			if(button==null || !(button instanceof ButtonCell)) return;
+
+			if(editModeCheckbox.checked){
+				solutions[selectedSolution][1].value[button.i][button.j]=(solutions[selectedSolution][1].value[button.i][button.j]+1)%2;
+				button.changeCellStatus();
+			}
+
+			checkVictory();// in cas we won by editing the solution
+		}
+
+		class ButtonCell {
+			status = false;
+			// unsafe to keep them public and modifiable but osef
+			button = null;
+			letter = "none";
+			i = -1;
+			j = -1;
+			color_ON = "darkgreen";
+			color_OFF = "crimson";
+
+			constructor(letter, i, j, callback) {
+				this.letter = letter;
+				this.i = i;
+				this.j = j;
+				
+				this.button = document.createElement('button');
+				this.button.classList.add("cell");
+				this.button.textContent = letter;
+				this.button.addEventListener('click', () => callback(this));
+
+				// putting it outside because now there is solutionGrid
+				//mainGridContainer.appendChild(this.button);
+
+				this.changeCellStatus(false); // to update to false's color <-- could be outside too
+
+
+				// think about it :
+				//attachTo(list)=>list.appenchild(this.button);
+				//detach()=>this.button.remove()
+			}
+
+			changeCellStatus(newStatus) { // swap if no argument
+				if (newStatus == null || newStatus == undefined) this.status = !this.status;
+				else this.status = newStatus;
+
+				this.button.style.backgroundColor = (this.status ? this.color_ON : this.color_OFF);
+				this.button.style.borderStyle = this.status?"outset":"inset";
+			}
+		}
+
+		//	=========================================
+		//					maths
+		//	=========================================
+
+		class Matrix {
+			value = [];
+			constructor(value) { this.value = value; }
+			static zeros(rows, cols = rows) { return new Matrix(Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0))); }
+			static ones(rows, cols = rows) { return new Matrix(Array.from({ length: rows }, () => Array.from({ length: cols }, () => 1))); }
+			rows() { return this.value.length; }
+			cols() { return this.value[0].length; }
+			toString() {
+				if (this.value == null) return "value is null WTF?!";
+				else return this.value.map((row) => row.join(' ')).join('\n');
+			}
+
+			getColonized() { return new Matrix(this.value.flat().map((u) => [u])); }
+
+			getInverseMatrix() {
+				let rows = this.rows();
+				let cols = this.cols();
+				if (rows != cols || rows * cols == 0) throw new Error("cant reverse non square matrix!");
+				//Array.from(objet_iterable,(val,index)=>{})
+				//Array.from({length:9},(val,index)=>{}) // {length:9} is an object with only one attribute : length=9
+				//Array.from(objet_iterable,(_,index)=>{})
+				//Array.from("ABSDCEF",(_,index)=>0) // array of seven 0 
+				// ATTENTION ()=>{} needs a return : Array.from({length:3},(_,i)=>{return i*i})
+				// while ()=>5 doesnt
+
+				// ...value is a spread operator : decompose in its elements
+				// map creates a new array by applying a function to all its elements
+				// myarray.map( (element,index,array)=>{/*do something and returns it}
+				// const square = myarray.map((n,i)=>{return n*n;})
+
+				// building expended matrix = [mat eye]
+				//const M=Array.from({length:rows},(tab,i)=>{mat[i].concat([-1,-2-3])});
+				//let p = .concat([-1,-2-3]
+
+				// array.foreach return undefined
+				// array.map     return a new array
+
+				const M = this.value.map((row, i) => {
+					const end = Array.from({ length: rows }, (_, j) => (i == j) ? 1 : 0);
+					return [...row, ...end];
+				});
+
+				for (let c = 0; c < cols; c++) {
+					if (M[c][c] == 0) {
+						for (let r = c + 1; r < rows; r++) {
+							if (M[r][c] == 1) {
+								for (let col = 0; col < M[0].length; col++) M[c][col] = (M[c][col] + M[r][col]) % 2;
+								break;
+							}
+						}
+					}
+
+					if (M[c][c] != 1) {throw new Error(`we couldnt fix the diag element (${c},${c}) : no usefull 1 below it ${M}`);}
+
+					for (let line = 0; line < rows; line++) {
+						if (line == c) continue; //skip the diag line
+						if (M[line][c] != 0) {
+							for (let col = 0; col < M[0].length; col++) M[line][col] = (M[line][col] + M[c][col]) % 2;
+						}
+					}
+				}
+
+				// array.slice(startindex,cutting end endindex opt)
+				return new Matrix(M.map((row) => row.slice(rows)));
+			}
+
+			addMatrix(b) {
+				if (b == null) throw new Error("cant ad null matrix");
+				if (this.cols() != b.cols() || this.rows() != b.rows()) throw new Error(`cant add matrices (${this.rows()},${this.cols()})+(${b.rows()},${b.cols()})`);
+				let result = Matrix.zeros(this.rows(), this.cols());
+				for (let r = 0; r < result.rows(); r++) {
+					for (let c = 0; c < result.cols(); c++) {
+						result.value[r][c] = (this.value[r][c] + b.value[r][c]) % 2;
+					}
+				}
+				return result;
+			}
+			multiplyMatrix(b) {
+				if (b == null) throw new Error("cant multiply null matrix");
+				if (this.cols() != b.rows()) throw new Error(`cant multiply matrices (${this.rows()},${this.cols()})×(${b.rows()},${b.cols()})`);
+
+				let rows = this.rows();
+				let cols = b.cols();
+				let result = Matrix.zeros(rows, cols);
+				for (let l = 0; l < rows; l++) {
+					for (let c = 0; c < cols; c++) {
+						for (let i = 0; i < this.cols(); i++) result.value[l][c] = result.value[l][c] + this.value[l][i] * b.value[i][c];
+						result.value[l][c] = (result.value[l][c]) % 2;
+					}
+				}
+				return result;
+			}
+		}
+
+		/*
+const configs={
+	name:"bob",
+	age:44,
+	weight:120
+};*/
+
+
+		function checkVictory() {
+			let hasWon = true;
+			//let victoryCounter=0;
+			//cellList.forEach((cell,index)=>{victoryCounter+=cell.status?1:0;}
+			//victoryLabel.dataset.status=(victoryCounter==cellList.length?"won":"none");
+
+			// solution could be an array -> pattern
+			let solution = solutions[selectedSolution][1];
+			for (let cell of mainGridCellList) {
+				//if(cell.status!=solution){hasWon=false;break;}
+				if (cell.status != solution.value[cell.i][cell.j]) { hasWon = false; break; }
+
+			}
+			victoryLabel.dataset.status = (hasWon ? "won" : "none");
+			if(hasWon && !window.speechSynthesis.speaking){
+
+				const utterA = new SpeechSynthesisUtterance("ああ、メセドラシヤス！");
+				utterA.lang="ja-JP";
+				utterA.pitch=.5;
+
+				const utterB = new SpeechSynthesisUtterance("ううい、サプ。サプヴレマン僕。メセボン！");
+				utterB.lang="ja-JP";
+				utterB.pitch=1.9;
+
+				window.speechSynthesis.speak(utterA);
+				window.speechSynthesis.speak(utterB);
+			}
+		}
+
+		function solveIt() {
+			/* 	the idea is : finalState = initialState + transitionMatrix∙pushedCells
+				(notation change)	   f = i + A∙X
+							   A⁻¹·(f-i) = A⁻¹·A·X
+									   X = inv(A)·(f-i)
+			*/
+			let inputMatrix = new Matrix(Array.from({ length: mainGridCellList.length }, (_, i) => [mainGridCellList[i].status ? 1 : 0]));
+			let finalMatrix = (solutions[selectedSolution][1]).getColonized();//.ones(cellList.length,1);
+			// X = final-input
+			//inputMatrix.value.forEach( (v,i,array) => array[i][0]=(v[0]+finalMatrix.value[i][0])%2 );
+			let X = inputMatrix.addMatrix(finalMatrix);
+			let sol = transitionMatrix.getInverseMatrix().multiplyMatrix(X);
+			// no need to resquare it
+			solutionLabel.innerHTML = sol.value.map((v, i) => (v[0] == 1 ? mainGridCellList[i].letter : '')).filter((c) => c != '').join(' ');
+			solutionLabel.style.visibility = 'visible';
+		}
+
+		function initializeTransitionMatrixFor(gridSizeX, gridSizeY = gridSizeX) {
+			if (gridSizeX != gridSizeY) throw new Error("cant init non squarre trans mat");
+			//transitionMatrix = new Matrix(Array.from({ length: gridSizeX * gridSizeY }, () => Array.from({ length: gridSizeX * gridSizeY }, () => 0)));
+			transitionMatrix=Matrix.zeros(gridSizeX*gridSizeY,gridSizeX*gridSizeY);
+			for (let x = 0; x < gridSizeY; x++)
+				for (let y = 0; y < gridSizeX; y++)
+					for (let i = 0; i < gridSizeY; i++)
+						for (let j = 0; j < gridSizeX; j++) {
+							let Dx=Math.abs(x-i);
+							let Dy=Math.abs(y-j);
+							if (Dx + Dy < 2) transitionMatrix.value[x + gridSizeX * (y)][i + gridSizeY * (j)] += 1;
+						}
+		}
+		// ==========================================
+
+		function buildMainGrid(gridRows,gridCols=gridRows) {
+			gridRows= gridRows ?? solutions[selectedSolution][1].rows();
+			gridCols= gridCols ?? solutions[selectedSolution][1].cols();
+			initializeTransitionMatrixFor(gridRows,gridCols); // pertinent here in buildGrid ?
+
+			// first remove the buttons then clean the array
+			mainGridCellList.forEach((c) => { c.button.remove() });
+			mainGridCellList.length = 0;
+			mainGridContainer.style.setProperty('--cols', gridRows);
+			// if width .... setProperty() ?
+
+			for (let j = 0; j < gridCols; j++) {
+				for (let i = 0; i < gridRows; i++) {
+					let letter = i + j * gridRows + 1;
+					let cell = new ButtonCell(letter, j, i, onClickMainGridButton);//reversed to be consistent with matrix indexing
+					
+					if (Math.random() > 0.5) cell.changeCellStatus();
+					mainGridCellList.push(cell);
+					mainGridContainer.appendChild(cell.button);
+				}
+			}
+		}
+
+		// rethink the indexing of buttons
+
+		function buildSolutionGrid(gridRows,gridCols=gridRows) {
+			gridRows= gridRows ?? solutions[selectedSolution][1].rows();
+			gridCols= gridCols ?? solutions[selectedSolution][1].cols();
+			solutionGridCellList.forEach((c) => { c.button.remove() });
+			solutionGridCellList.length = 0;
+			solutionGridContainer.style.setProperty('--cols', gridRows);
+			// if width .... setProperty() ?
+
+			for (let j = 0; j < gridCols; j++) {
+				for (let i = 0; i < gridRows; i++) {
+					let letter = i + j * gridRows + 1;
+					let cell = new ButtonCell(letter, j, i, onClickSolutionGridButton);//reversed to be consistent with matrix indexing
+					
+					//if (Math.random() > 0.5) 
+
+					let y =(solutions[selectedSolution][1]).value[j][i];
+					cell.changeCellStatus((y==1));
+					
+					
+					solutionGridCellList.push(cell);
+					solutionGridContainer.appendChild(cell.button);
+				}
+			}
+
+
+		}
+
+
+
+		const sol_3x3_corners = new Matrix(
+			[
+				[1, 0, 1],
+				[0, 0, 0],
+				[1, 0, 1],
+			]);
+
+		/*
+		class Solution{
+			label
+			matrix
+			button ?
+		}
+		*/
+		// not statisfactory, messy
+		const solutions = [
+			["1×1", Matrix.ones(1)],
+			["3×3", Matrix.ones(3)],
+			["3×3 corners", sol_3x3_corners],
+			["6×6", Matrix.ones(6)],
+			["10×10", Matrix.ones(10)],
+			//["15×15", Matrix.ones(15)] too big
+		];
+		let selectedSolution = 1;
+
+		// build solutions
+		for (let i = 0; i < solutions.length; i++) {
+			let element = document.createElement('button');
+			element.classList.add('difficulty-list-button');
+			element.textContent = solutions[i][0];
+			element.addEventListener('click', () => {
+				solutionLabel.style.visibility = 'hidden';
+				victoryLabel.dataset.status = "shuffling";
+				toggleDropdownList();
+				selectedSolution = i;
+				buildMainGrid();
+				buildSolutionGrid();
+				checkVictory(); // in case the new game is won at the beginning
+			});
+			difficultyList.appendChild(element);
+		};
+
+		/*document.addEventListener('click',()=>{
+			difficultyList.classList.remove("shown");
+		});*/
+
+
+		// may just do as a click on a difficultyListButton ? solutions..
+		buildMainGrid();
+		buildSolutionGrid();
+
+		let solutionViewer = document.getElementById("solutionViewer");
+
+
+	</script>
+</body>
+
+</html>
