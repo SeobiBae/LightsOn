@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1.0">
+	<title>Lights On</title>
+	<style>
+		:root{
+			--headerHeight:34px;
+			--cell_ON_color:rgb(200,200,40);
+			--cell_OFF_color:rgb(50,50,00);
+			--buttonPressedColor:red;
+			--buttonHorizPadding:6px;
+			--buttonBorderWidth:3px;
+		}
+		html{
+			/*scrollbar-gutter: stable;*/
+			height: 100%;
+		}
+		body {
+			display: block;
+			background-color: rgb(12,12,12);
+			margin-top:var(--headerHeight);
+			margin-bottom:0;
+			margin-left:0;
+			margin-right:0;
+			padding: 0;
+			height: calc(100% - var(--headerHeight));
+			width: 100%;
+		}
+		main{
+			width:100%;
+			height:100%;
+
+			display:grid;
+			grid-template-columns: 1fr 1fr;
+
+			justify-items: center;/*stretch;*/
+			align-items: center;
+		}
+		header{
+			display: flex;
+			justify-content: space-between;
+			align-items: stretch;
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: var(--headerHeight);
+			/*background-color: rgb(49, 49, 49);*/
+			/*padding: 0 0;*/
+		}
+		
+		.cellContainer {
+			display: grid;
+			min-width: 300px;
+			max-width: 800px;
+			/*max-height: 50vw;*/
+			grid-template-columns: repeat(var(--cols), 1fr);
+			/*place-items: center;
+			align-items: center;
+			justify-items: center;
+			justify-content: center;*/
+			gap: 0px;
+			aspect-ratio: 1/1;
+			border-color:rgb(64,64,64);
+			border-width: 4px;
+			border-style:ridge;
+		}
+		.cell {
+			width: 100%;
+			min-width: 30px;
+			font-size: 16px;
+			cursor: pointer;
+			aspect-ratio: 1/1;
+			/*border-width: 3px;*/
+			border-color: rgb(10,10,10);
+			border-style:outset;
+			/*padding: 0 2px;*/
+			background-color:var(--cell_ON_color);
+			font-family: monospace;
+			font-weight: bold;
+		}
+		.cell:hover{
+			border-color:rgb(104, 104, 104);
+			border-style: solid;
+		/*	border-width: 2px;*/
+		}
+		.cell:active{transform: translate(1px,1px);}
+		.cellOFF{
+			background-color: var(--cell_OFF_color);
+			border-style:solid;
+			/*border-width: 1px;*/
+		}
+		.cell[data-isSolution="yes"]{color:red;}
+		.cell[data-isSolution="no"]{color: black;}
+
+
+
+		#victoryLabel {
+			font-size: 60px;
+			background-color: rgb(11, 179, 5);
+			position: fixed;
+			top: var(--headerHeight);
+			left: 0;
+			right: 0;
+			border-style: double;
+			border-color: rgb(208, 255, 0);
+			border-width: 6px;
+			text-align: center;
+			justify-content: center;
+			z-index: 100;
+			display: none;
+		}
+		#victoryLabel[data-status="won"] {display: flex;}
+		
+		
+		/*************************************************/
+		.button{
+			background-color:gray;
+			border-color: black;
+			border-style: outset;
+			border-width: var(--buttonBorderWidth);
+			font-size: 20px;
+			height: 100%;
+			line-height: calc( var(--headerHeight) - 2 * var(--buttonBorderWidth));
+			padding-top: 0;
+			padding-bottom: 0;
+			padding-left: var(--buttonHorizPadding);
+			padding-right	: var(--buttonHorizPadding);
+		}
+		.button:active{
+			transform: translate(1px,1px);
+			border-style: inset;
+		}
+		.button:hover{
+			cursor:pointer;
+			border-color:lightgray;
+			border-style: solid;
+		}
+		.toggledButton{
+			/*color:black;*/
+			color:red;
+			background-color: rgb(60,60,60);
+			border-style: inset;
+			transform: translate(1px,1px);
+		}
+		/*************************************************/
+		.dropdownList {
+			display: none;
+			position: absolute;
+			z-index: 100;
+			/*
+			border-color: black;
+			border-style: solid;
+			border-width: 1px;
+			*/
+		}
+		
+		.dropdownList_button {
+			background-color:slategray;
+			color: black;
+			border-color: black;
+			font-size: 16px;
+		}
+		
+		.dropdownList_button:hover {
+			border-style: solid;
+			border-width: 2px;
+			background-color:steelblue;
+		}
+
+		.dropdownShown {display: grid;}
+
+		/* we want it to max the width */
+		#solutionButton{width:100%;}
+
+
+
+		#helpPanel{
+			color: rgb(147, 150, 6);
+			background-color:rgb(41, 41, 41);
+			border-style: solid;
+			border-color: rgb(105, 105, 105);
+			border-width: 4px;
+			/*margin-top: 50px;*/
+			left: 0;
+			right: 0;
+			padding: 30px;
+			position:fixed;
+			display:none;
+			font-size: 30px;
+			z-index: 1000;
+		}
+
+		#pdfButton{display:none;}
+
+		.embedPdf{
+			display: none;
+			width: 100%;
+			height: 100vh;
+			background-color: rgb(70,70,70);
+		}
+		.showPdf{display: block;}
+	</style>
+</head>
+
+<body>
+	<div id="helpPanel">
+</div>
+	<header>
+		<!--input type="button" class="button" id="newGameButton" value="New game"-->
+		
+		<div class="dropdownContainer">
+			<input type="button" class="button difficulty-button" id="difficultyButton" value="Grid size ▼"></button>
+			<div class="dropdownList" id="difficultyList"></div>
+		</div>
+
+		<input type="button" class="button" id="shuffleButton" value="Shuffle">
+		<input type="button" class="button" id="solutionButton" value="Solve it for me!">
+		<input type="button" class="button" id="editModeButton" value="Edit Mode">
+		<div class="dropdownContainer">
+			<input type="button" class="button" id="languageButton" value="⚙️"> <!--⚙️🌐-->
+			<div class="dropdownList" id="languageDropdownList"></div>
+		</div>
+		<input type="button" class="button" id="pdfButton" data-showPDF="OFF" value="Doc"></div>
+		<input type="button" class="button" id="helpButton" value="How to play">
+	</header>		
+	<main >
+		<div class="cellContainer" id="cellContainer"></div>
+		<div class="cellContainer" id="solutionViewer"></div>
+	</main>
+	
+	<div id="victoryLabel">CONGRATULATIONS!</div>
+	
+	<embed class="embedPdf" id="embedPdf" src="LightsOn.pdf" type="application/pdf"/>
+
+	<script>
+
+		function toggleButton(event){
+			if(!(event instanceof Event)) return;
+			event.target.classList.toggle("toggledButton");
+		}
+
+		const mainGridCellButtonList = [];
+		const solutionGridCellButtonList = [];
+
+		const mainGridContainer = document.getElementById('cellContainer');
+		const solutionGridContainer = document.getElementById('solutionViewer');
+		const victoryLabel = document.getElementById('victoryLabel');
+		const embedPdf = document.getElementById('embedPdf');
+		const helpPanel=document.getElementById("helpPanel");
+		const difficultyList = document.getElementById("difficultyList");
+
+		const shuffleButton = document.getElementById('shuffleButton');
+		const editModeButton=document.getElementById("editModeButton");
+		const solutionButton=document.getElementById("solutionButton");
+		const difficultyButton=document.getElementById("difficultyButton");
+		const pdfButton=document.getElementById("pdfButton");
+		const helpButton=document.getElementById("helpButton");
+		//const newGameButton=document.getElementById("newGameButton");
+
+
+
+		/*****************************************************************************************/
+		const TAKING_SCREENSHOOT=false;
+		/*****************************************************************************************/
+		let stream = null;
+		const canv = document.createElement("canvas");
+		const video = document.createElement("video");
+		let imgCounter=0;		
+		async function toggleReadyToRec(){
+			if(!TAKING_SCREENSHOOT) return;
+			if(stream instanceof MediaStream) {
+				stream.getTracks().forEach( x => x.stop());
+				stream=null;
+				if(video){video.srcObject=null;}
+				return;
+			}
+			stream = await navigator.mediaDevices.getDisplayMedia({video:true});
+			video.srcObject=stream;
+			video.autoplay=true;//v.play();
+		}
+		
+		async function TakeScreenshot(){
+			if(!TAKING_SCREENSHOOT) return;
+			if( !(stream instanceof MediaStream) ){
+				console.error("stream is not ready !");return;
+			}
+
+			if(video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA){
+				canv.width=video.videoWidth;
+				canv.height=video.videoHeight;
+				const cont = canv.getContext("2d");
+				cont.drawImage(video,0,0);
+				
+				const a = document.createElement("a");
+				a.href=canv.toDataURL("image/png");
+				a.download=`img${imgCounter++}.png`;
+				a.click();
+			}
+			//else video.onloadeddata = ()=>TakeScreenshot();
+			else video.addEventListener("loadeddata",TakeScreenshot,{once:true});
+		}
+		//***************************************************************************************
+
+
+		
+		shuffleButton.addEventListener("click",shuffleMainGrid);
+		editModeButton.addEventListener('click',toggleButton);
+		solutionButton.addEventListener("click",(e)=>{
+			//solutionButton.classList.toggle("toggledButton");
+			toggleButton(e);
+			solveIt();
+		});
+		pdfButton.addEventListener("click",(e)=>{
+				//pdfButton.classList.toggle("toggledButton");
+				toggleButton(e);
+				embedPdf.classList.toggle("showPdf");
+				embedPdf.scrollIntoView();
+		});
+		helpButton.addEventListener("mouseenter",()=>{helpPanel.style.display="block";});
+		helpButton.addEventListener("mouseleave",()=>{helpPanel.style.display="none";});
+		
+		difficultyButton.addEventListener('click',()=>toggleThisDropdownList(difficultyList));
+		//difficultyButton.addEventListener('mouseleave',()=>toggleThisDropdownList(difficultyList,false));
+		difficultyList.addEventListener("mouseleave",()=>toggleThisDropdownList(difficultyList,false));
+		
+		
+		//=========================================================================================
+		//			LANGUAGES
+		//=========================================================================================
+		const languageButton=document.getElementById("languageButton");
+		const languageDropdownList=document.getElementById("languageDropdownList");
+
+		languageButton.addEventListener('click',()=>toggleThisDropdownList(languageDropdownList));
+		languageDropdownList.addEventListener('mouseleave',()=>toggleThisDropdownList(languageDropdownList,false));
+		
+		
+		const Translator={
+			en:{name:"English" ,shuffle:"Shuffle",   newGame:"New game",       gridSize:"Grid size ▼",        solution:"Solve it!",help:"How to play",editMode:"Edit mode", pdf:"Pdf",       victory:"Congratulations!",howToPlay:""},
+			//ko:{name:"한국어"   ,shuffle:"셔플",      newGame:"새 게임",          gridSize:"그리드 크기 ▼",        solution:"자동 풀기",  help:"게임 방법",        editMode:"에디트 모드", pdf:"",   victory:"축하해!",howToPlay:""},
+			//jp:{name:"日本語"   ,shuffle:"シャッフル",newGame:"新しいゲーム",     gridSize:"グリッドサイズ ▼",     solution:"自動で解く",help:"遊び方",           editMode:"編集モード",  pdf:"",  victory:"おめでとう！",howToPlay:""},
+			fr:{name:"Français",shuffle:"Mélanger",  newGame:"Nouvelle partie",gridSize:"Grille ▼",solution:"Solution", help:"Aide",editMode:"Mode édition",pdf:"Documentation",victory:"Bravo !",howToPlay:""},
+
+		};
+
+		Translator.en.howToPlay="Click a cell in the left grid to toggle its state and the states of its four adjacent neighbors, so that they match the pattern in the right grid.<br><br>The '"+Translator.en.shuffle+"' button randomizes the cells in the left grid.<br><br>Use '"+Translator.en.editMode+"' to manually toggle a single cell in the left, or even in the right grid.<br><br>The main purpose of this 'game' is to show the effectiveness of the '"+Translator.en.solution+"' button, regardless of the pattern of cell states in the right goal grid.";
+		Translator.fr.howToPlay="Cliquez sur une case de la grille de gauche pour changer son état et celui de ses quatres cases voisines, afin qu'elles correspondent au patern de la grille de droite.<br><br>Le bouton '"+Translator.fr.shuffle+"' randomize les cases de la grille de gauche.<br><br>Utilisez le '"+Translator.fr.editMode+"' pour changer manuellement l'état d'une case de la grille de gauche, mais aussi de celle de droite.<br><br>Le but de ce 'jeu' est de montrer l'efficacité du bouton '"+Translator.fr.solution+"', quelque soit le patern des cases de la grille cible de droite.";
+		
+		Object.keys(Translator).forEach((langCode)=>{
+			let langBtn=document.createElement("input");
+			langBtn.type="button";
+			langBtn.value=Translator[langCode].name;
+			langBtn.classList.add("dropdownList_button");
+			langBtn.addEventListener('click',()=>{
+				applyLang(langCode);
+				toggleThisDropdownList(languageDropdownList,false);
+			});
+			languageDropdownList.appendChild(langBtn);
+		});
+
+		function applyLang(langId="en"){
+			let lang = Translator[langId] ?? Translator.en;
+			shuffleButton.value=lang.shuffle;
+			//newGameButton.value=lang.newGame;
+			difficultyButton.value=lang.gridSize;
+			solutionButton.value=lang.solution;
+			helpButton.value=lang.help;
+			editModeButton.value=lang.editMode;
+			pdfButton.value=lang.pdf;
+			victoryLabel.textContent=lang.victory;
+			helpPanel.innerHTML=lang.howToPlay;
+
+			// pdfButton.style.display=lang.name==="Français"?"block":"none";
+
+			// adjusting width of drowdown lists
+			let panelWidth=difficultyList.getBoundingClientRect().width;
+			let btnWidth=difficultyButton.getBoundingClientRect().width;
+			if(panelWidth<btnWidth) difficultyList.style.width=btnWidth.toString()+"px";
+
+			panelWidth=languageDropdownList.getBoundingClientRect().width;
+			btnWidth=languageButton.getBoundingClientRect().width;
+			if(panelWidth<btnWidth) languageDropdownList.style.width=btnWidth.toString()+"px";
+		}
+
+		
+		applyLang(navigator.languages.includes("fr")?"fr":null);
+
+		//=========================================================================================
+
+		let inversedTransitionMatrix=null;
+		function updateInversedTransitionMatrix(){
+			let gridSize=Solution.selected.mat.rows();
+			inversedTransitionMatrix=Matrix.getTransitionMatrixFor(gridSize,gridSize).getInverseMatrix();
+		}
+
+		function checkVictory() {
+			let hasWon = true;
+
+			if(Solution.selected==null) return;
+
+			for (let cell of mainGridCellButtonList) {
+				if (cell.status != Solution.selected.mat.value[cell.i][cell.j]) { hasWon = false; break; }
+			}
+			victoryLabel.dataset.status = (hasWon ? "won" : "none");
+			
+			if(hasWon){setTimeout(()=>{victoryLabel.dataset.status = "none";},4000);}
+		}
+
+		function solveIt() {
+			/* 	the idea is : finalState = initialState + transitionMatrix∙pushedCells
+				(notation change)	   f = i + A∙X
+							   A⁻¹·(f-i) = A⁻¹·A·X
+									   X = inv(A)·(f-i)		*/
+
+
+			let inputMatrix = new Matrix(Array.from({length:mainGridCellButtonList.length},(_,i)=>[mainGridCellButtonList[i].status?1:0]));
+			let finalMatrix = Solution.selected.mat;
+			// on F2 : a-b = a+b
+			//let gridSize = finalMatrix.rows() ; // get size from where ? maingrid, solutiongrid, sqrt(maingridcelllist.length) ?
+			
+			
+			//let sol = Matrix.getTransitionMatrixFor(gridSize,gridSize).getInverseMatrix().multiplyMatrix(inputMatrix.addMatrix(finalMatrix.getColonized()));
+			let sol = inversedTransitionMatrix.multiplyMatrix(inputMatrix.addMatrix(finalMatrix.getColonized()));
+
+			
+			let autoSolve=solutionButton.classList.contains("toggledButton");
+			// maybe you should loop on the cell array than the solutions
+			sol.value.forEach((val,i)=>{mainGridCellButtonList[i].button.setAttribute("data-isSolution",val[0]===1&&autoSolve?"yes":"no");});
+
+			// no need to resquare sol
+			//solutionLabel.innerHTML = sol.value.map((v, i) => (v[0] == 1 ? mainGridCellButtonList[i].letter : '')).filter((c) => c != '').join(' ');
+			//solutionLabel.style.visibility = 'visible';
+		}
+
+
+
+		function onClickMainGridButton(button) {
+			if (button == null || !(button instanceof CellButton)) return;
+			let editMode = isThisButtonChecked(editModeButton);
+			if (editMode) { button.changeCellStatus(); }
+			else
+				mainGridCellButtonList.forEach((cell, index) => {
+					let dx = Math.abs(cell.i - button.i);
+					let dy = Math.abs(cell.j - button.j);
+					if (dx + dy < 2 && !editMode) { cell.changeCellStatus(); }
+				});
+			solveIt();
+			checkVictory();
+		}
+
+		function onClickSolutionGridButton(button) {
+			if(button==null || !(button instanceof CellButton)) return;
+			if(isThisButtonChecked(editModeButton)){
+				Solution.selected.mat.value[button.i][button.j]=(Solution.selected.mat.value[button.i][button.j]+1)%2;
+				button.changeCellStatus();
+				solveIt();
+				checkVictory();// in case we won by editing the solution
+			}
+		}
+
+		
+		// ========================================================================================
+		function isThisButtonChecked(btn){
+			if(!(btn instanceof HTMLElement)) return false;
+			return btn.classList.contains("toggledButton");
+		}
+
+		function toggleThisDropdownList(dropdownList,showIt) {
+			if(!(dropdownList instanceof HTMLElement)) return;
+			if( !(dropdownList.classList.contains("dropdownList")) ) return;
+
+			if(showIt===true) dropdownList.classList.add("dropdownShown");
+			else if(showIt===false) dropdownList.classList.remove("dropdownShown");
+			else dropdownList.classList.toggle("dropdownShown");
+		}
+
+		function shuffleMainGrid() {
+			//solutionLabel.style.visibility = 'hidden';
+			victoryLabel.dataset.status = "shuffling";
+			mainGridCellButtonList.forEach((cell) => {
+				if (Math.random() > 0.5) cell.changeCellStatus();
+			});
+			solveIt();
+			checkVictory(); // here ?
+		}
+
+		function buildMainAndSolutionGrids(gridRows,gridCols=gridRows) {
+			gridRows= gridRows ?? Solution.selected.mat.rows();
+			gridCols= gridCols ?? Solution.selected.mat.cols();
+			//initializeTransitionMatrixFor(gridRows,gridCols); // pertinent here in buildGrid ?
+
+			// first remove the buttons then clean the array
+			mainGridCellButtonList.forEach((c) => { c.button.remove() });
+			mainGridCellButtonList.length = 0;
+			mainGridContainer.style.setProperty('--cols', gridRows);
+			// if width .... setProperty() ?
+			for (let j = 0; j < gridCols; j++) {
+				for (let i = 0; i < gridRows; i++) {
+					let letter = i + j * gridRows + 1;
+					let cell = new CellButton(letter, j, i, onClickMainGridButton);//reversed to be consistent with matrix indexing
+					
+					
+					if(TAKING_SCREENSHOOT) cell.button.addEventListener('click',TakeScreenshot);
+					
+					if (Math.random() > 0.5) cell.changeCellStatus();
+					mainGridCellButtonList.push(cell);
+					mainGridContainer.appendChild(cell.button);
+				}
+			}
+
+			solutionGridCellButtonList.forEach((c) => { c.button.remove() });
+			solutionGridCellButtonList.length = 0;
+			solutionGridContainer.style.setProperty('--cols', gridRows);
+			// if width .... setProperty() ?
+			for (let j = 0; j < gridCols; j++) {
+				for (let i = 0; i < gridRows; i++) {
+					let letter = i + j * gridRows + 1;
+					let cell=new CellButton(letter,j,i,onClickSolutionGridButton);//reversed to be consistent with matrix indexing
+					cell.changeCellStatus((Solution.selected.mat.value[j][i]===1));
+					solutionGridCellButtonList.push(cell);
+					solutionGridContainer.appendChild(cell.button);
+				}
+			}
+		}
+
+		
+		
+		
+		class CellButton {
+			status = true; // default is ON
+			// unsafe to keep them public and modifiable but osef
+			button = null;
+			letter = "none";
+			i = -1;
+			j = -1;
+			//color_ON = "rgb(200,200,40)";
+			//color_OFF = "rgb(50,50,00)";
+
+			constructor(letter, i, j, callback) {
+				this.letter = letter;
+				this.i = i;
+				this.j = j;
+				this.button = document.createElement('button');
+				this.button.classList.add("cell");
+				//this.button.classList.add("button");
+				this.button.textContent = letter;
+				this.button.addEventListener('click', () => callback(this));
+				this.button.setAttribute("data-isSolution","no");
+
+
+				// think about it :
+				//attachTo(list)=>list.appenchild(this.button);
+				//detach()=>this.button.remove()
+			}
+
+			changeCellStatus(newStatus=!this.status) { // swap if no argument
+				this.status=newStatus;
+
+				if(this.status==false) this.button.classList.add("cellOFF");
+				else this.button.classList.remove("cellOFF");
+
+				//this.button.style.backgroundColor = (this.status ? this.color_ON : this.color_OFF);
+				//this.button.style.borderStyle = this.status?"outset":"inset";
+			}
+		}
+
+		class Matrix {
+			value = [];
+			constructor(value) { this.value = value; } // you let value unverified ? REALLY ?
+			static zeros(rows, cols = rows) { return new Matrix(Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0))); }
+			static ones(rows, cols = rows) { return new Matrix(Array.from({ length: rows }, () => Array.from({ length: cols }, () => 1))); }
+			rows() { return this.value.length; }
+			cols() { return this.value[0].length; }
+			toString() {
+				if (this.value == null) return "value is null WTF?!";
+				else return this.value.map((row) => row.join(' ')).join('\n');
+			}
+
+			getColonized() { return new Matrix(this.value.flat().map((u) => [u])); }
+
+			getInverseMatrix() {
+				let rows = this.rows();
+				let cols = this.cols();
+				if (rows != cols || rows * cols == 0) throw new Error("cant reverse non square matrix!");
+				//Array.from(objet_iterable,(val,index)=>{})
+				//Array.from({length:9},(val,index)=>{}) // {length:9} is an object with only one attribute : length=9
+				//Array.from(objet_iterable,(_,index)=>{})
+				//Array.from("ABSDCEF",(_,index)=>0) // array of seven 0 
+				// ()=>{} needs a return : Array.from({length:3},(_,i)=>{return i*i})
+				// 		while ()=>5 doesnt
+
+				// ...value is a spread operator : decompose in its elements
+				// map creates a new array by applying a function to all its elements
+				// myarray.map( (element,index,array)=>{/*do something and returns it}
+				// const square = myarray.map((n,i)=>{return n*n;})
+
+				// building expended matrix = [mat eye]
+				//const M=Array.from({length:rows},(tab,i)=>{mat[i].concat([-1,-2-3])});
+				//let p = .concat([-1,-2-3]
+
+				// array.foreach return undefined
+				// array.map     return a new array
+
+				const M = this.value.map((row, i) => {
+					const end = Array.from({ length: rows }, (_, j) => (i == j) ? 1 : 0);
+					return [...row, ...end];
+				});
+
+				for (let c = 0; c < cols; c++) {
+					if (M[c][c] == 0) {
+						for (let r = c + 1; r < rows; r++) {
+							if (M[r][c] == 1) {
+								for (let col = 0; col < M[0].length; col++) M[c][col] = (M[c][col] + M[r][col]) % 2;
+								break;
+							}
+						}
+					}
+
+					if (M[c][c] != 1) {throw new Error(`we couldnt fix the diag element (${c},${c}) : no usefull 1 below it ${M}`);}
+
+					for (let line = 0; line < rows; line++) {
+						if (line == c) continue; //skip the diag line
+						if (M[line][c] != 0) {
+							for (let col = 0; col < M[0].length; col++) M[line][col] = (M[line][col] + M[c][col]) % 2;
+						}
+					}
+				}
+
+				// array.slice(startindex,cutting end endindex opt)
+				return new Matrix(M.map((row) => row.slice(rows)));
+			}
+
+			addMatrix(b) {
+				if (b == null) throw new Error("cant ad null matrix");
+				if (this.cols() != b.cols() || this.rows() != b.rows()) throw new Error(`cant add matrices (${this.rows()},${this.cols()})+(${b.rows()},${b.cols()})`);
+				let result = Matrix.zeros(this.rows(), this.cols());
+				for (let r = 0; r < result.rows(); r++) {
+					for (let c = 0; c < result.cols(); c++) {
+						result.value[r][c] = (this.value[r][c] + b.value[r][c]) % 2;
+					}
+				}
+				return result;
+			}
+			multiplyMatrix(b) {
+				if (b == null) throw new Error("cant multiply null matrix");
+				if (this.cols() != b.rows()) throw new Error(`cant multiply matrices (${this.rows()},${this.cols()})×(${b.rows()},${b.cols()})`);
+
+				let rows = this.rows();
+				let cols = b.cols();
+				let result = Matrix.zeros(rows, cols);
+				for (let l = 0; l < rows; l++) {
+					for (let c = 0; c < cols; c++) {
+						for (let i = 0; i < this.cols(); i++) result.value[l][c] = result.value[l][c] + this.value[l][i] * b.value[i][c];
+						result.value[l][c] = (result.value[l][c]) % 2;
+					}
+				}
+				return result;
+			}
+
+			static getTransitionMatrixFor(gridSizeX, gridSizeY = gridSizeX) {
+				if (gridSizeX != gridSizeY) throw new Error("cant init non squarre trans mat");
+				let m=Matrix.zeros(gridSizeX*gridSizeY,gridSizeX*gridSizeY);
+				for (let x = 0; x < gridSizeX; x++)
+					for (let y = 0; y < gridSizeY; y++)
+						for (let i = 0; i < gridSizeX; i++)
+							for (let j = 0; j < gridSizeY; j++) {
+								let Dx=Math.abs(x-i);
+								let Dy=Math.abs(y-j);
+								if (Dx + Dy < 2) m.value[x + gridSizeY * (y)][i + gridSizeX * (j)] += 1;
+							}
+				return m;
+			}
+		}
+
+		class Solution{
+			mat=null;
+			static selected=null;
+
+			constructor(txt,mat){
+				this.mat=mat;
+				let btn = document.createElement('button');
+				btn.classList.add('dropdownList_button');
+				btn.textContent = txt;
+				btn.addEventListener('click', ()=>this.onClick() );
+				difficultyList.appendChild(btn);
+			};
+
+			onClick(){
+				victoryLabel.dataset.status = "shuffling";
+				toggleThisDropdownList(difficultyList,false);
+				Solution.selected = this;
+
+				buildMainAndSolutionGrids();
+				updateInversedTransitionMatrix();
+
+				solveIt();
+				checkVictory(); // in case the new game is won at the beginning
+			}
+		}
+
+		const solutions=[
+			new Solution("1×1", Matrix.ones(1)),
+			new Solution("3×3", Matrix.ones(3)),
+			new Solution("6×6", Matrix.ones(6)),
+			/*new Solution("6×6 diags", new Matrix([	[1,0,0,0,0,1],
+													[0,1,0,0,1,0],
+													[0,0,1,1,0,0],
+													[0,0,1,1,0,0],
+													[0,1,0,0,1,0],
+													[1,0,0,0,0,1]])),*/
+			new Solution("10×10", Matrix.ones(10)),
+			new Solution("20×20", Matrix.ones(20)),
+		];
+
+		solutions[2].onClick();
+
+
+		if(TAKING_SCREENSHOOT) toggleReadyToRec();
+		
+	</script>
+</body>
+
+</html>
